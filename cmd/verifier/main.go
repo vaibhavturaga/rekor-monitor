@@ -42,8 +42,8 @@ const (
 	outputIdentitiesFileName = "identities.txt"
 )
 
-func checkEntries(height uint64, rekorClient *gclient.Rekor, logInfoFile *string) error{
-	
+func checkEntries(height uint64, rekorClient *gclient.Rekor, logInfoFile *string) error {
+
 	fi, err := os.Stat(*logInfoFile)
 	var prevCheckpoint *util.SignedCheckpoint
 	if err == nil && fi.Size() != 0 {
@@ -55,8 +55,8 @@ func checkEntries(height uint64, rekorClient *gclient.Rekor, logInfoFile *string
 	}
 
 	var baseCheckpointSize = prevCheckpoint.Size - height
-	
-	for i := baseCheckpointSize; i < prevCheckpoint.Size; i++{
+
+	for i := baseCheckpointSize; i < prevCheckpoint.Size; i++ {
 		fmt.Println(i)
 	}
 	fmt.Println(prevCheckpoint)
@@ -107,9 +107,8 @@ func runConsistencyCheck(interval *time.Duration, rekorClient *gclient.Rekor, ve
 			}
 			fmt.Fprintf(os.Stderr, "Root hash consistency verified - Current Size: %d Root Hash: %s - Previous Size: %d Root Hash %s\n",
 				checkpoint.Size, hex.EncodeToString(checkpoint.Hash), prevCheckpoint.Size, hex.EncodeToString(prevCheckpoint.Hash))
-			
+			fmt.Fprintf(os.Stderr, "Change in size: %d\n", checkpoint.Size-prevCheckpoint.Size)
 			height = checkpoint.Size - prevCheckpoint.Size
-			
 		}
 
 		// Write if there was no stored checkpoint or the sizes differ
@@ -165,8 +164,6 @@ func runConsistencyCheck(interval *time.Duration, rekorClient *gclient.Rekor, ve
 	}
 }
 
-
-
 // This main function performs a periodic root hash consistency check.
 // Upon starting, any existing latest snapshot data is loaded and the function runs
 // indefinitely to perform consistency check for every time interval that was specified.
@@ -176,7 +173,7 @@ func main() {
 	interval := flag.Duration("interval", 5*time.Minute, "Length of interval between each periodical consistency check")
 	logInfoFile := flag.String("file", logInfoFileName, "Name of the file containing initial merkle tree information")
 	once := flag.Bool("once", false, "Perform consistency check once and exit")
-	ishaan := flag.Bool("ishaan", false, "Print out name once")
+	yourName := flag.String("name", "default", "Name of the user executing the program")
 	monitoredValsInput := flag.String("monitored-values", "", "yaml of certificate subjects and issuers, key subjects, "+
 		"and fingerprints. For certificates, if no issuers are specified, match any OIDC provider.")
 	outputIdentitiesFile := flag.String("output-identities", outputIdentitiesFileName,
@@ -184,8 +181,8 @@ func main() {
 	height := uint64(0)
 	flag.Parse()
 
-	if *ishaan {
-		fmt.Println("Ishaan")
+	if *yourName != "default" {
+		flag.Set("once", "true")
 	}
 
 	var monitoredVals rekor.MonitoredValues
