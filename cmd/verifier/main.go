@@ -29,6 +29,7 @@ import (
 	file "github.com/sigstore/rekor-monitor/pkg/util"
 	"github.com/sigstore/rekor/pkg/client"
 	gclient "github.com/sigstore/rekor/pkg/generated/client"
+	"github.com/sigstore/rekor/pkg/generated/client/entries"
 	"github.com/sigstore/rekor/pkg/util"
 	"github.com/sigstore/rekor/pkg/verify"
 	"github.com/sigstore/sigstore/pkg/signature"
@@ -42,26 +43,56 @@ const (
 	outputIdentitiesFileName = "identities.txt"
 )
 
+func getEntryByIndex(index uint64, rekorClient *gclient.Rekor) (entries.GetLogEntryByIndexOK, error) {
+	// Create the params object
+	params := entries.NewGetLogEntryByIndexParams()
+	params.LogIndex = int64(index) // Convert uint64 to int64 as LogIndex expects int64
+
+	// Fetch the entry using its index
+	entry, err := rekorClient.Entries.GetLogEntryByIndex(params)
+	if err != nil {
+		return *entry, fmt.Errorf("error getting entry by index: %v", err) // TODO: I assume *entry isn't valid here
+	}
+	return *entry, nil
+}
+
 func checkEntries(height uint64, rekorClient *gclient.Rekor, logInfoFile *string) error {
-
+	// Check if the logInfoFile exists and has data
 	fi, err := os.Stat(*logInfoFile)
-	var prevCheckpoint *util.SignedCheckpoint
-	if err == nil && fi.Size() != 0 {
-		// File containing previous checkpoints exists
-		prevCheckpoint, err = file.ReadLatestCheckpoint(*logInfoFile)
-		if err != nil {
-			return fmt.Errorf("reading checkpoint log: %v", err)
-		}
+	if fi.Size() == 0 {
+		return fmt.Errorf("log info file is empty")
+	}
+	if err != nil {
+		return fmt.Errorf("error checking file: %v", err)
 	}
 
-	var baseCheckpointSize = prevCheckpoint.Size - height
+	// Read the latest checkpoint from the file
+	prevCheckpoint, err := file.ReadLatestCheckpoint(*logInfoFile)
+	if err != nil {
+		return fmt.Errorf("reading checkpoint log: %v", err)
+	}
 
+	// Calculate the base checkpoint size to iterate over
+	var baseCheckpointSize uint64
+	if prevCheckpoint.Size > height {
+		baseCheckpointSize = prevCheckpoint.Size - height
+	}
+
+	// Iterate over the entries starting from baseCheckpointSize
 	for i := baseCheckpointSize; i < prevCheckpoint.Size; i++ {
-		fmt.Println(i)
-	}
-	fmt.Println(prevCheckpoint)
-	return nil
+		// Attempt to get the entry
+		entry, err := getEntryByIndex(i, rekorClient)
+		if err != nil {
+			return err
+		}
 
+		// Print information from the entry
+		fmt.Printf("Entry %d: %s\n", i, entry.String())
+	}
+	// Print whole previous checkpoint
+	fmt.Println(prevCheckpoint)
+
+	return nil
 }
 
 // runConsistencyCheck periodically verifies the root hash consistency of a Rekor log.
