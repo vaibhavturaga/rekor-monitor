@@ -57,7 +57,7 @@ type CertificateIdentity struct {
 }
 
 type OIDconstraint struct {
-	OID        string `yaml:"oid"`
+	OID        []int  `yaml:"oid"`
 	Constraint []byte `yaml:"constraint"`
 }
 
@@ -167,12 +167,12 @@ func MatchedIndices(logEntries []models.LogEntry, mvs MonitoredValues) ([]Identi
 
 			for _, OIDConstraint := range mvs.OIDConstraints {
 				for _, cert := range certs {
-					match, err := oidMatchesPolicy(cert, OIDConstraint.OID, OIDConstraint.Constraint)
+					match, err := oidMatchesPolicy(cert, asn1.ObjectIdentifier(OIDConstraint.OID), OIDConstraint.Constraint)
 					if err != nil {
 						return nil, fmt.Errorf("error with policy matching for UUID %s at index %d: %w", uuid, *entry.LogIndex, err)
 					} else if match {
 						matchedEntries = append(matchedEntries, IdentityEntry{
-							OID:   OIDConstraint.OID, // TODO: update identity
+							// TODO: What else should I put here...
 							Index: *entry.LogIndex,
 							UUID:  uuid,
 						})
@@ -330,16 +330,13 @@ func certMatchesPolicy(cert *x509.Certificate, expectedSub string, expectedIssue
 }
 
 // oidMatchesPolicy returns true if the OID value matches one of the provided constraints
-func oidMatchesPolicy(cert *x509.Certificate, oidValue []byte, oidConstraint []byte) (bool, error) {
-	// oids map[string]string := extract from cert
-
-	// Convert to ints
-	intArray := make([]int, len(byteArray))
-	for i, b := range oidValue {
-		intArray[i] = int(b)
-	}
-
-	thing, err := getExtension(cert, asn1.ObjectIdentifier{intArray})
+func oidMatchesPolicy(cert *x509.Certificate, oid asn1.ObjectIdentifier, oidConstraint []byte) (bool, error) {
+	// TODO: Use the OID to get the value from the passed in certificate - use existing functions!
+	// ********************************
+	// ********************************
+	// ********************************
+	// ********************************
+	// ********************************
 
 	for oid, _ := range oids {
 		value, ok := oidValues[oid]
@@ -355,7 +352,7 @@ func oidMatchesPolicy(cert *x509.Certificate, oidValue []byte, oidConstraint []b
 		if !found {
 			// No target byte value for this OID (this might not be an error depending on your requirements)
 			fmt.Errorf("No sample target byte value found for this OID: %s", oid)
-			return true, "" //TODO what should this be?
+			return true, nil // TODO what should this be?
 		}
 
 		if !compareValue(value, targetValue) {
@@ -364,7 +361,7 @@ func oidMatchesPolicy(cert *x509.Certificate, oidValue []byte, oidConstraint []b
 		}
 		// Implicit Case 3: Exists and matches, no action required unless you want to explicitly check for an error condition
 	}
-	return true, ""
+	return true, nil
 }
 
 // compareValue compares two byte arrays for equality
