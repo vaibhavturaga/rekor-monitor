@@ -339,36 +339,27 @@ func certMatchesPolicy(cert *x509.Certificate, expectedSub string, expectedIssue
 
 // oidMatchesPolicy returns true if the OID value matches one of the provided constraints
 func oidMatchesPolicy(cert *x509.Certificate, oid asn1.ObjectIdentifier, oidConstraint []byte) (bool, error) {
-	// TODO: Use the OID to get the value from the passed in certificate - use existing functions!
-	// ********************************
-	// ********************************
-	// ********* building all of ******
-	// **** oidValues **** makes ******
-	// ******* no sense here! *********
-
-	for oid, _ := range oids {
-		value, ok := oidValues[oid]
-
-		if !ok {
-			// Case 1: OID does not exist
-			return false, fmt.Errorf("OID %s not present in the certificate", oid)
-		}
-
-		// OID exists, check if it matches the target value
-
-		targetValue, found := oidConstraint
-		if !found {
-			// No target byte value for this OID (this might not be an error depending on your requirements)
-			fmt.Errorf("No sample target byte value found for this OID: %s", oid)
-			return true, nil // TODO what should this be?
-		}
-
-		if !compareValue(value, targetValue) {
-			// Case 2: Exists with wrong value
-			return false, fmt.Errorf("OID %s exists but does not match the expected value", oid)
-		}
-		// Implicit Case 3: Exists and matches, no action required unless you want to explicitly check for an error condition
+	value, err := getExtension(cert, oid)
+	if err != nil {
+		return false, fmt.Errorf("error getting extension value: %w", err)
 	}
+	if value == "" {
+		return false, fmt.Errorf("OID %s not present in the certificate", oid)
+	}
+
+	var extValue []byte
+	rest, err := asn1.Unmarshal([]byte(value), &extValue)
+	if err != nil {
+		return false, fmt.Errorf("error unmarshalling extension value: %w", err)
+	}
+	if len(rest) > 0 {
+		return false, fmt.Errorf("unmarshalling extension had rest for oid %v", oid)
+	}
+	//compare the value with the constraint
+	if !compareValue(extValue, oidConstraint) {
+		return false, fmt.Errorf("OID %s exists but does not match the expected value", oid)
+	}
+
 	return true, nil
 }
 
